@@ -1,1 +1,204 @@
 # mikrotik-failover-testing-2remote-ips
+
+<h1>MikroTik Script – Failover Using Routing Mark</h1>
+
+<h2>In this tutorial, I demonstrate how to use routing marks to monitor internet links by sending pings to remote addresses. This approach not only detects when a link is completely down but also considers packet loss as a failure condition.</h2>
+
+<b>The script below assumes the following:</b>
+
+-There are two active internet connections.
+
+-The script checks for packet loss by pinging two different IP addresses on the internet.
+
+-You can also define the packet size and the interval between pings.
+
+-In this tutorial, I assume you already have static routes configured using the routing-mark option, for example:
+
+<b>/ip route add comment="Carrier-1" distance=5 gateway=191.202.191.201 routing-mark=provider1</b>
+
+<b>Have fun!</b>
+
+--
+
+<b>/system scheduler</b>
+
+add interval=10s name=provider1-check-down on-event=":global test1 199.7.83.42\r\
+    \n:global test2 202.12.27.33\r\
+    \n:global link1 provider1\r\
+    \n:global spkt1 200\r\
+    \n:global int1 \"0.2\"\r\
+    \n\r\
+    \n:if ([/ping \$test1 size=\$spkt1 interval=\$int1 routing-table=\$link1 \
+    count=10]!=10) do={\r\
+    \n\t:log info message=\"\$link1 packet loss to \$test1... Testi\
+    ng to \$test2\";\r\
+    \n\t:if ([/ping \$test2 size=\$spkt1 interval=\$int1 routing-table=\$link\
+    1 count=10]!=10) do={\r\
+    \n\t\t:log warning message=\"Check \$link1 - loosing packets to \$t\
+    est1 and \$test2\";\r\
+    \n\t\t:log warning message=\"\$link1 - Route Down\";\r\
+    \n\t\t/ip route set [find comment=Provider-1] distance=40;\r\
+    \n\t\t/system script run provider1down;\r\
+    \n\t} else={\r\
+    \n\t\t:log info message=\"\$link1 No packet loss during tests to\
+    \_\$test2.\";\r\
+    \n\t\t:log info message=\"\$link1 no changes.\";\r\
+    \n\t\t/ip route set [find distance=40] distance=5;\r\
+    \n\t\tquit;\r\
+    \n\t\t}\r\
+    \n\r\
+    \n} \r\
+    \n" policy=\
+    ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon \
+    start-date=oct/09/2024 start-time=12:00:00
+add interval=10s name=provider2-check-down on-event=":global test3 199.7.83.42\
+    \r\
+    \n:global test4 202.12.27.33\r\
+    \n:global link2 provider2\r\
+    \n:global spkt2 200\r\
+    \n:global int2 \"0.2\"\r\
+    \n\r\
+    \n:if ([/ping \$test3 size=\$spkt2 interval=\$int2 routing-table=\$link2 \
+    count=10]!=10) do={\r\
+    \n\t:log info message=\"\$link2 packet loss to \$test3... Testi\
+    ng to \$test4\";\r\
+    \n\t:if ([/ping \$test4 size=\$spkt2 interval=\$int2 routing-table=\$link\
+    2 count=10]!=10) do={\r\
+    \n\t\t:log warning message=\"Check \$link2 - loosing packets to \$t\
+    est3 and \$test4\";\r\
+    \n\t\t:log warning message=\"\$link2 - Route Down\";\r\
+    \n\t\t/ip route set [find comment=Provider-2] distance=45;\r\
+    \n\t\t/system script run provider2down;\r\
+    \n\t} else={\r\
+    \n\t\t:log info message=\"\$link2 No packet loss during tests to\
+    \_\$test4.\";\r\
+    \n\t\t:log info message=\"\$link2 no changes.\";\r\
+    \n\t\t/ip route set [find distance=45] distance=10;\r\
+    \n\t\tquit;\r\
+    \n\t\t}\r\
+    \n\r\
+    \n}\r\
+    \n" policy=\
+    ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon \
+    start-date=oct/09/2024 start-time=12:00:00
+add disabled=yes interval=1m name=provider1-check-up on-event=":global test\
+    1 199.7.83.42\r\
+    \n:global test2 202.12.27.33\r\
+    \n:global link1 provider1\r\
+    \n:global spkt1 200\r\
+    \n:global int1 \"0.2\"\r\
+    \n\r\
+    \n:if ([/ping \$test1 size=\$spkt1 interval=\$int1 routing-table=\$link1 \
+    count=20] =20) do={\r\
+    \n\t:log warning message=\"\$link1 No packet loss to \$test1... T\
+    esting to \$test2\";\r\
+    \n\t:if ([/ping \$test2 size=\$spkt1 interval=\$int1 routing-table=\$link\
+    1 count=20] =20) do={\r\
+    \n\t\t:log warning message=\"Everything is OK \$link1 - No packet loss t\
+    o \$test1 and \$test2\";\r\
+    \n\t\t:log warning message=\"\$link1 - Route UP\";\r\
+    \n\t\t/ip route set [find distance=40] distance=5;\r\
+    \n\t\t/system script run provider1up;\r\
+    \n\t} else={\r\
+    \n\t\t:log warning message=\"The issue persists with \$test2.\";\r\
+    \n\t\tquit;\r\
+    \n\t}\r\
+    \n} \r\
+    \n" policy=\
+    ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon \
+    start-date=oct/09/2024 start-time=12:00:00
+add disabled=yes interval=1m name=provider2-check-up on-event=":global t\
+    est3 199.7.83.42\r\
+    \n:global test4 202.12.27.33\r\
+    \n:global link2 provider2\r\
+    \n:global spkt2 200\r\
+    \n:global int2 \"0.2\"\r\
+    \n\r\
+    \n:if ([/ping \$test3 size=\$spkt2 interval=\$int2 routing-table=\$link2 \
+    count=20] =20) do={\r\
+    \n\t:log warning message=\"\$link2 No packet loss to \$test3... T\
+    esting to \$test4\";\r\
+    \n\t:if ([/ping \$test4 size=\$spkt2 interval=\$int2 routing-table=\$link\
+    2 count=20] =20) do={\r\
+    \n\t\t:log warning message=\"Everything is OK \$link2 - No packet loss t\
+    o \$test3 and \$test4\";\r\
+    \n\t\t:log warning message=\"\$link2 - Route UP\";\r\
+    \n\t\t/ip route set [find distance=45] distance=10;\r\
+    \n\t\t/system script run provider2up;\r\
+    \n\t} else={\r\
+    \n\t\t:log warning message=\"The issue persists with \$test4.\";\r\
+    \n\t\tquit;\r\
+    \n\t}\r\
+    \n} \r\
+    \n" policy=\
+    ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon \
+    start-date=oct/09/2024 start-time=12:00:00
+<b>/system script</b>
+
+add dont-require-permissions=yes name=provider1up owner=admin policy=\
+    ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon source=":\
+    log warning message=\"Sending a notification that provider1 is UP via email\"\r\
+    \n:global datenow [/system clock get date]\r\
+    \n:global hournow [/system clock get time]\r\
+    \n:global devicename [/system identity get name]\r\
+    \n/tool e-mail send to=\"support@yourcompany.com\" subject=\"Prov-\
+    ider1 UP \$datenow \$hournow\" body=\"Primary link of \$devicename has been restored\"\r\
+    \n/system scheduler disable [find name=provider1-check-up]\r\
+    \n/system scheduler enable [find name=provider1-check-down]\r\
+    \n\r\
+    \n\r\
+    \n\r\
+    \n\r\
+    \n\r\
+    \n\r\
+    \n"
+add dont-require-permissions=no name=provider1down owner=admin policy=\
+    ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon source=":\
+    log warning message=\"Sending a notification that provider1 is Down via email\"\r\
+    \n:global datenow [/system clock get date]\r\
+    \n:global hournow [/system clock get time]\r\
+    \n:global devicename [/system identity get name]\r\
+    \n/tool e-mail send to=\"support@yourcompany.com\" subject=\"Prov-\
+    ider1 Down \$datenow \$hournow\" body=\"Primary link of \$devicename has gone down\"\r\
+    \n/system scheduler disable [find name=provider1-check-down]\r\
+    \n/system scheduler enable [find name=provider1-check-up]\r\
+    \n"
+add dont-require-permissions=yes name=provider2up owner=admin policy=\
+    ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon source=":\
+    log warning message=\"Sending a notification that provider1 is UP via email\"\r\
+    \n:global datenow [/system clock get date]\r\
+    \n:global hournow [/system clock get time]\r\
+    \n:global devicename [/system identity get name]\r\
+    \n/tool e-mail send to=\"support@yourcompany.com\" subject=\"Prov-\
+    ider2 UP \$datenow \$hournow\" body=\"Secondary link of \$devicename has been restored\"\r\
+    \n/system scheduler disable [find name=provider2-check-up]\r\
+    \n/system scheduler enable [find name=provider2-check-down]\r\
+    \n\r\
+    \n\r\
+    \n\r\
+    \n\r\
+    \n\r\
+    \n\r\
+    \n"
+add dont-require-permissions=no name=provider2down owner=admin policy=\
+    ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon source=":\
+    log warning message=\"Sending a notification that provider1 is Down via email\"\r\
+    \n:global datenow [/system clock get date]\r\
+    \n:global hournow [/system clock get time]\r\
+    \n:global devicename [/system identity get name]\r\
+    \n/tool e-mail send to=\"support@yourcompany.com\" subject=\"Prov-\
+    ider2 Down \$datenow \$hournow\" body=\"Secondary link of Hotel \$devicename has gone down\"\r\
+    \n/system scheduler disable [find name=provider2-check-down]\r\
+    \n/system scheduler enable [find name=provider2-check-up]\r\
+    \n"
+
+--
+
+<b>Wrapping Up</b>
+
+In the Scheduler function, we have the checking routine, where the device tests two different IP addresses and only considers the link to have an issue if both show packet loss (at least 1 out of 10 packets).
+
+In the Scripts section, we define the actions to be taken in case of a route change.
+Feel free to create your own parameters and actions as needed.
+
+Thank you for visiting my tutorial on GitHub! I hope you found it helpful. Feel free to reach out if you have any questions or feedback.
